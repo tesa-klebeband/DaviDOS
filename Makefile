@@ -6,7 +6,7 @@ all: prep bootloader.bin davidos.sys command.com format.com ansi.com image run
 prep:
 	mkdir -p build
 	mkdir -p build/prg
-	cat > build/prg/autoexec.bat
+	echo '' > build/prg/autoexec.bat
 
 bootloader.bin: src/bootloader.asm
 	$(ASM) $^ -o build/$@
