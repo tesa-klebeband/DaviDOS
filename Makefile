@@ -20,6 +20,7 @@ ansi.com: src/ansi.asm
 	$(ASM) $^ -o build/prg/$@
 	
 image: build/bootloader.bin
+	mkdir -p mnt
 	dd if=/dev/zero of=DaviDOS.img bs=1024K count=16
 	mkfs.fat -F 16 DaviDOS.img
 	dd if=build/bootloader.bin of=DaviDOS.img conv=notrunc
