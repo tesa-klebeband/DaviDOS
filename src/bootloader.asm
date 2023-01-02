@@ -233,15 +233,14 @@ print_string:       ; Routine: output string in SI to screen
 .done:
 	ret
 
-; Unexecutable data:
-kernel_cluster dw 0
+kernel_cluster: dw 0
 
-non_system_msg db "Non-System disk or disk error", 0xA, 0xD, "Replace and strike any key when ready", 0
+non_system_msg: db "Non-System disk or disk error", 0xA, 0xD, "Replace and strike any key when ready", 0
 
-kernel db "DAVIDOS SYS"
+kernel: db "DAVIDOS SYS"
 
-start_sector dw 0
-root_size db 0
+start_sector: dw 0
+root_size: db 0
 
 times 510-($-$$) db 0
 dw 0xAA55
