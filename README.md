@@ -8,6 +8,8 @@ DaviDOS currently supports 32 functions of the DOS interrupt 21h. Those function
 * Make
 * QEMU - only required for running DaviDOS in a VM
 
-To build DaviDOS navigate to the root of this project and run **make**.
+To build DaviDOS navigate to the root of this project and run `make`. All output files will be stored under the `build/` directory.
+* To run DaviDOS in QEMU without building (building needs to be done before) run `make run`.
+* To build the system files and/or programs individually run `make "filename"` and to build the image run `make image`.
 ## License
 All files within this repo are released under the GNU GPL V3 License as per the LICENSE file stored in the root of this repo.
