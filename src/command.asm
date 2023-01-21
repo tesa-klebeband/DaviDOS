@@ -494,11 +494,11 @@ ver:
 
 cls:
     mov ah, 0x07
-    xor al, al
     mov bh, 0x07
-    xor cx, cx
     mov dh, 0x18
     mov dl, 0x4f
+    xor cx, cx
+    xor al, al
     int 0x10
 
     mov ah, 0xF
