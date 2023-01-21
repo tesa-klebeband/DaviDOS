@@ -136,6 +136,7 @@ display_warning:
     mov cl, 1
     mov bx, root
     call write_disk
+    jc disk_error
 
     jmp exit
 
