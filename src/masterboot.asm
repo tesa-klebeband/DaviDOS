@@ -32,10 +32,8 @@ start:
     mov bx, 0x7c00
     call read_disk
 
-    or cx, 0xFFFF
-    mov bx, [part_0 + 8]
     mov dl, [drive_number]
-    jmp 0:0x7c00
+    jmp 0x7c00
 
 lba_to_chs:
     push ax
