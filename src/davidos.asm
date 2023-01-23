@@ -6,6 +6,7 @@ mov ds, ax
 mov es, ax
 
 mov [default_drive], dl
+mov [part_lba], bx
 
 cli
 mov ax, 0x7000
@@ -324,15 +325,34 @@ set_drive:
     push es
     push cx
     push ax
+    push bx
+    push dx
 
-    xor cx, cx
-    mov es, cx
+    xor ax, ax
+    mov cl, 1
+    mov es, [cs:zero]
+    mov bx, buffer
+    call read_disk
+
+    mov ah, 0x2
+    mov al, 1
+    mov ch, 0
+    mov cl, 1
+    mov dh, 0
+    mov dl, [cs:default_drive]
+    mov bx, buffer
+    int 0x13
+
+    mov bx, [cs:buffer + 446 + 8]
+    mov [cs:part_lba], bx
 
     mov di, current_directory_buffer
     xor al, al
     mov cx, 64
     rep stosb
 
+    pop dx
+    pop bx
     pop ax
     pop cx
     pop es
@@ -1708,7 +1728,6 @@ unparse_bios_drive:
     ret
 
 parse_filename:
-    push word [cs:dir_cluster]
     push es
     push di
     push cx
@@ -1796,7 +1815,6 @@ parse_filename:
     pop cx
     pop di
     pop es
-    pop word [cs:dir_cluster]
     ret
 
 setup_drive_read:
@@ -1808,35 +1826,29 @@ setup_drive_read:
     push dx
     push di
 
-    mov ah, 0x2
-    mov al, 1
-    mov ch, 0
-    mov cl, 1
-    mov dh, 0
-    xor bx, bx    
-    mov es, bx
-    mov ds, bx
-    mov bx, buffer
-    mov dl, [cs:default_drive]
-    clc
-    int 0x13
-    jc .error
-
     push es
     mov ah, 0x8
+    mov dl, [cs:default_drive]
     clc
     int 0x13
     pop es
     jc .error
-
-    cmp [cs:buffer + 0x26], byte 0x29
-    jne .fat_error
-
     and cl, 0x3F
     xor ch, ch
     mov [cs:sectors_per_track], cx
     inc dh
     mov [cs:heads], dh
+
+    xor ax, ax
+    mov cl, 1
+    push es
+    mov es, [cs:zero]
+    mov bx, buffer
+    call read_disk
+    pop es
+
+    cmp [cs:buffer + 0x26], byte 0x29
+    jne .fat_error
 
     mov dx, [cs:buffer + 0xB]
     mov [cs:bytes_per_sector], dx
@@ -1862,7 +1874,7 @@ setup_drive_read:
     ret
 
 .error:
-    mov [tmp_8], ah
+    mov [cs:tmp_8], ah
     pop di
     pop dx
     pop cx
@@ -1871,10 +1883,10 @@ setup_drive_read:
     pop ds
     pop es
 
-    mov ah, [tmp_8]
+    mov ah, [cs:tmp_8]
     call handle_disk_error
 
-    cmp [choice], byte 0x1
+    cmp [cs:choice], byte 0x1
     je setup_drive_read
 
     jmp .done
@@ -1944,7 +1956,7 @@ load_root:
 
     mov bx, 0x1000
     mov es, bx
-    xor bx, bx  
+    xor bx, bx
 
     call read_disk
 
@@ -2360,6 +2372,7 @@ read_disk:
     push dx
     push di
 
+    add ax, [cs:part_lba]
     push cx
     call lba_to_chs
     pop ax
@@ -2392,6 +2405,7 @@ write_disk:
     push dx
     push di
 
+    add ax, [cs:part_lba]
     push cx
     call lba_to_chs
     pop ax
@@ -2481,6 +2495,7 @@ sectors_per_fat: dw 0
 total_dir_entries: dw 0
 fat_copies: db 0
 default_drive: db 0
+part_lba: dw 0
 
 zero: dw 0
 
