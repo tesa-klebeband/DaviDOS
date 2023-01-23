@@ -29,12 +29,6 @@ file_system             db "FAT16   "
 
 start:
     ; Setup segment and stack registers
-    cmp cx, 0xFFFF
-    jne .no_part
-
-    mov [part_lba], bx
-
-.no_part:
     xor ax, ax
     mov ds, ax
     mov es, ax
@@ -43,7 +37,22 @@ start:
 
     mov [drive_number], dl
 
+    mov ax, 0x201
+    mov cx, 1
+    xor dh, dh
+    mov bx, buffer
+    int 0x13
+    jc error
+
+    cmp [buffer], byte 0xeb
+    je .no_part
+
+    mov bx, [buffer + 446 + 8]
+    mov [part_lba], bx
+
+.no_part:
     push es
+    mov dl, [drive_number]
     mov ah, 0x8
     int 0x13
     pop es
@@ -63,7 +72,6 @@ start:
     add ax, [reserved_sectors]
     push ax
 
-    xor ax, ax
     xor bx, bx
 
     mov ax, [total_dir_entries]
@@ -95,8 +103,7 @@ start:
     cmp bx, [total_dir_entries]
     jl .search_kernel
 
-    mov si, non_system_msg
-    call print_string
+    jmp error
     
     xor ah, ah
     int 0x16
@@ -156,7 +163,7 @@ start:
     mov dl, [drive_number]
 
     mov bx, [part_lba]
-    jmp 0:0x500
+    jmp 0x500
 
 
 lba_to_chs:
@@ -196,7 +203,7 @@ read_disk:
     mov ah, 02h
 
     int 13h
-    jc .error                           ; error if carry flag is set
+    jc error                           ; error if carry flag is set
 
     pop di
     pop dx
@@ -205,7 +212,7 @@ read_disk:
     pop ax                             ; restore registers
     ret
 
-.error:
+error:
     mov si, non_system_msg
     call print_string
 
@@ -219,7 +226,7 @@ print_string:       ; Routine: output string in SI to screen
 
 .loop:
 	lodsb			; Get character from string
-	cmp al, 0
+	cmp al, '$'
 	je .done		; If char is zero, end of string
 	int 0x10		; Otherwise, print it
 	jmp .loop
@@ -227,7 +234,7 @@ print_string:       ; Routine: output string in SI to screen
 .done:
 	ret
 
-non_system_msg: db "Non-System disk or disk error", 0xA, 0xD, "Replace and strike any key when ready", 0
+non_system_msg: db "Non-System disk or disk error$"
 
 kernel: db "DAVIDOS SYS"
 
