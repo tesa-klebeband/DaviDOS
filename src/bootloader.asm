@@ -29,18 +29,23 @@ file_system             db "FAT16   "
 
 start:
     ; Setup segment and stack registers
+    cmp cx, 0xFFFF
+    jne .no_part
+
+    mov [part_lba], bx
+
+.no_part:
     xor ax, ax
     mov ds, ax
     mov es, ax
     mov ss, ax
-    mov bp, 0x7c00
-    mov sp, bp
+    mov sp, 0x7c00
 
     mov [drive_number], dl
 
     push es
-    mov ah, 08h
-    int 13h
+    mov ah, 0x8
+    int 0x13
     pop es
 
     and cl, 0x3F
@@ -50,7 +55,6 @@ start:
     inc dh
     mov [heads], dh
 
-    xor ax, ax
     xor bx, bx
 
     mov ax, [sectors_per_fat]
@@ -151,41 +155,30 @@ start:
 .read_finish:
     mov dl, [drive_number]
 
+    mov bx, [part_lba]
     jmp 0:0x500
 
-
-;
-; Converts an LBA address to a CHS address
-; Parameters:
-;   - ax: LBA address
-; Returns:
-;   - cx [bits 0-5]: sector number
-;   - cx [bits 6-15]: cylinder
-;   - dh: head
-;
 
 lba_to_chs:
     push ax
     push dx
-
-    xor dx, dx                          ; dx = 0
-    div word [sectors_per_track]        ; ax = LBA / SectorsPerTrack
-                                        ; dx = LBA % SectorsPerTrack
-
-    inc dx                              ; dx = (LBA % SectorsPerTrack + 1) = sector
-    mov cx, dx                          ; cx = sector
-
-    xor dx, dx                          ; dx = 0
-    div word [heads]                    ; ax = (LBA / SectorsPerTrack) / Heads = cylinder
-                                        ; dx = (LBA / SectorsPerTrack) % Heads = head
-    mov dh, dl                          ; dh = head
-    mov ch, al                          ; ch = cylinder (lower 8 bits)
-    shl ah, 6
-    or cl, ah                           ; put upper 2 bits of cylinder in CL
-
+    
+    xor dx, dx
+    div word [sectors_per_track]
+    inc dx
+    mov [sector], dx
+    xor dx, dx
+    div word [heads]
+    mov [cylinder], ax
+    mov [head], dx
+    
+    pop dx
     pop ax
-    mov dl, al                          ; restore DL
-    pop ax
+
+    mov ch, [cylinder]
+    mov cl, [sector]
+    mov dh, [head]
+
     ret
 
 read_disk:
@@ -195,6 +188,7 @@ read_disk:
     push dx
     push di
 
+    add ax, [part_lba]
     push cx                             ; temporarily save CL (number of sectors to read)
     call lba_to_chs                     ; compute CHS
     pop ax                              ; AL = number of sectors to read
@@ -233,14 +227,20 @@ print_string:       ; Routine: output string in SI to screen
 .done:
 	ret
 
-kernel_cluster: dw 0
-
 non_system_msg: db "Non-System disk or disk error", 0xA, 0xD, "Replace and strike any key when ready", 0
 
 kernel: db "DAVIDOS SYS"
 
 start_sector: dw 0
 root_size: db 0
+
+cylinder: dw 0
+head: dw 0
+sector: dw 0
+
+part_lba: dw 0
+
+kernel_cluster: dw 0
 
 times 510-($-$$) db 0
 dw 0xAA55
