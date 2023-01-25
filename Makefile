@@ -28,12 +28,12 @@ image:
 	dd if=/dev/zero of=DaviDOS.img bs=4M count=8
 	dd if=build/masterboot.bin of=DaviDOS.img conv=notrunc
 	sudo losetup --partscan /dev/loop1 DaviDOS.img
-	sudo dd if=build/bootloader.bin of=/dev/loop1p1 conv=notrunc
-	sudo mount /dev/loop1p1 mnt/
+	sudo dd if=build/bootloader.bin of=/dev/loop10p1 conv=notrunc
+	sudo mount /dev/loop10p1 mnt/
 	sudo cp build/davidos.sys mnt/
 	sudo cp -r build/prg/* mnt/
 	sudo umount mnt
-	sudo losetup -d /dev/loop1
+	sudo losetup -d /dev/loop10
 
 run: DaviDOS.img
 	$(EMULATOR) $^
