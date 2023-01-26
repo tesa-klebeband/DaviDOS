@@ -27,7 +27,7 @@ image:
 	mkdir -p mnt
 	dd if=/dev/zero of=DaviDOS.img bs=4M count=8
 	dd if=build/masterboot.bin of=DaviDOS.img conv=notrunc
-	sudo losetup --partscan /dev/loop1 DaviDOS.img
+	sudo losetup --partscan /dev/loop10 DaviDOS.img
 	sudo dd if=build/bootloader.bin of=/dev/loop10p1 conv=notrunc
 	sudo mount /dev/loop10p1 mnt/
 	sudo cp build/davidos.sys mnt/
