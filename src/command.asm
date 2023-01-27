@@ -1124,7 +1124,7 @@ exit_cmd: db "exit", 0
 pause_cmd: db "pause", 0
 
 davidos_info_msg: db "DaviDOS(C) Version 1.1", 0xA, 0xD, "           (C)Copyright tesa_klebeband 2023.", 0xA, 0xD, '$'
-davidos_ver_msg: db 0xA, 0xD, "DaviDOS(C) Version 1.0$"
+davidos_ver_msg: db 0xA, 0xD, "DaviDOS(C) Version 1.1$"
 dos_ver_msg: db 0xA, 0xD, "Emulated DOS version: $"
 bad_filename_msg: db 0xA, 0xD, "Bad command or file name", 0xA, 0xD, '$'
 invalid_drive_msg: db 0xA, 0xD, "Invalid drive specification", 0xA, 0xD, '$'
