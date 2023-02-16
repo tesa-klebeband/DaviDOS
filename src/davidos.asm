@@ -1642,6 +1642,8 @@ create_file:
 
 .copy_filename:
     mov [es:di + 11], cl
+    mov [es:di + 28], word 0
+    mov [es:di + 26], word 0
 
     mov ds, [cs:zero]
     mov si, filename
