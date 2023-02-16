@@ -6,29 +6,6 @@ int 0x21
 
 mov [param + 4], ds
 
-mov ah, 0x4A
-mov bx, 0x1000
-int 0x21
-
-mov ah, 0x19
-int 0x21
-add al, 'A'
-mov [drive_letter], al
-
-mov ah, 0x47
-mov si, directory_buffer
-xor dl, dl
-int 0x21
-
-mov di, directory_buffer
-mov cx, 64
-xor al, al
-repne scasb
-dec di
-mov [di], byte '$'
-
-call execute_bat
-
 initialize:
     mov ax, cs
     mov ds, ax
@@ -165,37 +142,9 @@ bind_results:
     dec cl
     mov [cmdline], cl
 
-execute_file:
-    mov al, '.'
-    mov di, filename
-    mov cx, 9
-    repne scasb
-    jne .no_bat
-
-    cmp [di], word "ba"
-    jne .no_bat
-    cmp [di + 2], byte 't'
-    jne .no_bat
-
-    call execute_bat
-
-    jmp initialize
-
-.no_bat:
-    cmp [bat_execution], byte 1
-    je .execute
-
-    push word initialize
-
-.execute:
-    
-    cmp [bat_execution], byte 1
-    je .check
-
-    add sp, 2
+execute:
     push word print_prompt
 
-.check:
     cmp [filename + 1], byte ':'
     je change_drive
 
@@ -264,6 +213,9 @@ execute_file:
     mov cx, 6
     repe cmpsb
     je pause_
+
+    add sp, 2
+    push word initialize
 
     mov ax, 0x4B00
     mov dx, filename
@@ -867,87 +819,6 @@ copy:
 
     ret
 
-execute_bat:
-    mov ah, 0x1A
-    mov dx, bat_dta
-    int 0x21
-
-    mov ah, 0x4E
-    mov cx, 0b100111
-    mov dx, filename
-    int 0x21
-    
-    jc file_not_found
-
-    cmp [bat_dta + 0x1A], word 0
-    je .end_bat
-    
-    mov ax, 0x3D00
-    mov dx, filename
-    int 0x21
-
-    mov bx, ax
-    mov ah, 0x3F
-    mov cx, [bat_dta + 0x1A]
-    mov dx, buffer
-    int 0x21
-    
-    mov ah, 0x3E
-    int 0x21
-
-    mov [bat_execution], byte 1
-
-    mov di, buffer
-
-.get_next_line:
-    push di
-
-    xor al, al
-    mov di, input_buffer
-    mov cx, 281
-    rep stosb
-
-    pop di
-
-    mov bx, di
-    mov al, 0xA
-    mov dx, bx
-    sub dx, buffer
-    mov cx, [bat_dta + 0x1A]
-    sub cx, dx
-    cmp cx, 0
-    je .end_bat
-    repne scasb
-    jne .end_bat
-
-    dec di
-    mov [di], byte 0xD
-    inc di
-
-    mov cx, di
-    sub cx, bx
-    push cx
-
-    push di
-    mov si, bx
-    mov di, input_buffer
-    rep movsb
-    pop di
-    pop bx
-    dec bx
-    push di
-
-    call bind_results
-
-    pop di
-
-    jmp .get_next_line
-
-.end_bat:
-    mov [bat_execution], byte 0
-
-    ret
-
 invalid_drive:
     mov ah, 0x9
     mov dx, invalid_drive_msg
@@ -1093,7 +964,7 @@ int_24h:
     iret
 
 input_buffer: resb 140
-filename: db "autoexec.bat", 0
+filename: resb 12
 cmdline: resb 128
 
 param:
@@ -1106,10 +977,7 @@ param:
     dw 0
 
 dta: resb 0x2B
-bat_dta: resb 0x2B
 directory_buffer: resb 64
-
-bat_execution: db 0
 
 cd_cmd: db "cd", 0
 del_cmd: db "del", 0
