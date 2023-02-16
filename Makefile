@@ -6,7 +6,6 @@ all: prep masterboot.bin bootloader.bin davidos.sys command.com ansi.com image r
 prep:
 	mkdir -p build
 	mkdir -p build/prg
-	echo '' > build/prg/autoexec.bat
 
 masterboot.bin: src/masterboot.asm
 	$(ASM) $^ -o build/$@
