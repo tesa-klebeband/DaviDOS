@@ -14,7 +14,7 @@ initialize:
     mov sp, 0xFFFE
 
     mov ah, 0x4A
-    mov dx, 0x1000
+    mov bx, 0x1000
     int 0x21
 
     mov ah, 0x25
