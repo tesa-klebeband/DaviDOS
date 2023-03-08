@@ -21,7 +21,7 @@ command.com: src/command.asm
 
 ansi.com: src/ansi.asm
 	$(ASM) $^ -o build/prg/$@
-	
+
 image:
 	mkdir -p mnt
 	dd if=/dev/zero of=DaviDOS.img bs=4M count=8
