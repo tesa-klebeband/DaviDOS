@@ -1,38 +1,46 @@
 ASM = nasm -f bin
 EMULATOR = qemu-system-x86_64
+BUILD = build
+SRC = src
+PRG_SRC = $(SRC)/prg/
+PRG_BUILD = $(BUILD)/prg/
+PRG_ASM = $(wildcard $(PRG_SRC)/*.asm)
+PRG_COM = $(patsubst $(PRG_SRC)/%.asm,$(PRG_BUILD)/%.com,$(PRG_ASM))
+MOUNT_DIR = mnt
+TARGET_IMG = DaviDOS.img
+IMG_SIZE = 16MB
 
-all: prep masterboot.bin bootloader.bin davidos.sys command.com ansi.com image run
+all: prep masterboot.bin bootloader.bin davidos.sys programs image run
 
 prep:
-	mkdir -p build
-	mkdir -p build/prg
+	mkdir -p $(BUILD)
+	mkdir -p $(PRG_BUILD)
+	mkdir -p $(MOUNT_DIR)
 
-masterboot.bin: src/masterboot.asm
-	$(ASM) $^ -o build/$@
+masterboot.bin: $(SRC)/masterboot.asm
+	$(ASM) $^ -o $(BUILD)/$@
 
-bootloader.bin: src/bootloader.asm
-	$(ASM) $^ -o build/$@
+bootloader.bin: $(SRC)/bootloader.asm
+	$(ASM) $^ -o $(BUILD)/$@
 
-davidos.sys: src/davidos.asm
-	$(ASM) $^ -o build/$@
+davidos.sys: $(SRC)/davidos.asm
+	$(ASM) $^ -o $(BUILD)/$@
 
-command.com: src/command.asm
-	$(ASM) $^ -o build/prg/$@
+programs: $(PRG_COM)
 
-ansi.com: src/ansi.asm
-	$(ASM) $^ -o build/prg/$@
+$(PRG_BUILD)/%.com: $(PRG_SRC)/%.asm
+	$(ASM) $< -o $@
 
 image:
-	mkdir -p mnt
-	dd if=/dev/zero of=DaviDOS.img bs=4M count=8
-	dd if=build/masterboot.bin of=DaviDOS.img conv=notrunc
-	sudo losetup --partscan /dev/loop10 DaviDOS.img
-	sudo dd if=build/bootloader.bin of=/dev/loop10p1 conv=notrunc
-	sudo mount /dev/loop10p1 mnt/
-	sudo cp build/davidos.sys mnt/
-	sudo cp -r build/prg/* mnt/
-	sudo umount mnt
+	dd if=/dev/zero of=$(TARGET_IMG) bs=$(IMG_SIZE) count=1
+	dd if=$(BUILD)/masterboot.bin of=$(TARGET_IMG) conv=notrunc
+	sudo losetup --partscan /dev/loop10 $(TARGET_IMG)
+	sudo dd if=$(BUILD)/bootloader.bin of=/dev/loop10p1 conv=notrunc
+	sudo mount /dev/loop10p1 $(MOUNT_DIR)/
+	sudo cp $(BUILD)/davidos.sys $(MOUNT_DIR)/
+	sudo cp -r $(PRG_BUILD)* $(MOUNT_DIR)/
+	sudo umount $(MOUNT_DIR)
 	sudo losetup -d /dev/loop10
 
-run: DaviDOS.img
+run: $(TARGET_IMG)
 	$(EMULATOR) $^
