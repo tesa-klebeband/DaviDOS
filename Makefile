@@ -10,7 +10,7 @@ MOUNT_DIR = mnt
 TARGET_IMG = DaviDOS.img
 IMG_SIZE = 16MB
 
-all: prep masterboot.bin bootloader.bin davidos.sys programs image run
+all: image run
 
 prep:
 	mkdir -p $(BUILD)
@@ -31,7 +31,7 @@ programs: $(PRG_COM)
 $(PRG_BUILD)/%.com: $(PRG_SRC)/%.asm
 	$(ASM) $< -o $@
 
-image:
+image: prep masterboot.bin bootloader.bin davidos.sys programs
 	dd if=/dev/zero of=$(TARGET_IMG) bs=$(IMG_SIZE) count=1
 	dd if=$(BUILD)/masterboot.bin of=$(TARGET_IMG) conv=notrunc
 	sudo losetup --partscan /dev/loop10 $(TARGET_IMG)
