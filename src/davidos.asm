@@ -321,8 +321,10 @@ set_drive:
     mov [cs:dir_cluster], word 0
     mov [cs:dir_offset], word 0
 
+    push si
     push di
     push es
+    push ds
     push cx
     push ax
     push bx
@@ -332,20 +334,24 @@ set_drive:
     mov cl, 1
     mov es, [cs:zero]
     mov bx, buffer
+    mov [cs:part_lba], word 0
     call read_disk
 
-    mov ah, 0x2
-    mov al, 1
-    mov ch, 0
-    mov cl, 1
-    mov dh, 0
-    mov dl, [cs:default_drive]
-    mov bx, buffer
-    int 0x13
+    mov ds, [cs:zero]
+    mov si, fat_version_string
+    mov di, buffer + 0x36
+    mov cx, 8
+    repe cmpsb
+    jne .use_partition_table
 
+    mov [cs:part_lba], word 0
+    jmp .continue
+
+.use_partition_table:
     mov bx, [cs:buffer + 446 + 8]
     mov [cs:part_lba], bx
 
+.continue:
     mov di, current_directory_buffer
     xor al, al
     mov cx, 64
@@ -355,8 +361,10 @@ set_drive:
     pop bx
     pop ax
     pop cx
+    pop ds
     pop es
     pop di
+    pop si
 
     jmp return_21h
 
@@ -2498,6 +2506,7 @@ total_dir_entries: dw 0
 fat_copies: db 0
 default_drive: db 0
 part_lba: dw 0
+fat_version_string: db "FAT16   "
 
 zero: dw 0
 
