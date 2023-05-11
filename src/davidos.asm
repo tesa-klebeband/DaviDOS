@@ -1,12 +1,11 @@
 [ORG 0x500]
 [BITS 16]
 
-xor ax, ax
-mov ds, ax
-mov es, ax
+mov ds, [cs:zero]
+mov es, [cs:zero]
 
-mov [default_drive], dl
-mov [part_lba], bx
+mov [cs:default_drive], dl
+mov [cs:part_lba], bx
 
 cli
 mov ax, 0x7000
@@ -64,11 +63,11 @@ load_command:
 
 get_interpreter:
     mov ah, 0x9
-    mov dx, couldnt_load_command_msg
+    mov dx, command_load_error_msg
     int 0x21
 
     mov ah, 0x2
-    mov dl, [default_drive]
+    mov dl, [cs:default_drive]
     call unparse_bios_drive
     add dl, 'A'
     int 0x21
@@ -91,7 +90,7 @@ get_interpreter:
     cmp al, 0x8
     je get_interpreter
 
-    mov [cmd + bx], al
+    mov [cs:cmd + bx], al
     cmp bx, 13
     je load_command
     inc bx
@@ -200,9 +199,9 @@ end_program:
 
     mov [1], word 0
 
-    cmp [cs:reg_save_offset], word 16
-    je halt_exception
     sub [cs:reg_save_offset], word 16
+    cmp [cs:reg_save_offset], word 0
+    je command_exit
 
     mov si, reg_save
     add si, [cs:reg_save_offset]
@@ -227,7 +226,7 @@ end_program_keep_memory:
 
     mov [3], dx
     cmp [cs:reg_save_offset], word 16
-    je halt_exception
+    je command_exit
     sub [cs:reg_save_offset], word 16
 
     mov si, reg_save
@@ -239,6 +238,14 @@ end_program_keep_memory:
     mov es, [cs:si + 6]
 
     jmp return_21h
+
+command_exit:
+    mov ds, [cs:zero]
+    mov es, [cs:zero]
+    mov ax, 0x7000
+    mov ss, ax
+    mov sp, 0xFFFF
+    jmp load_command
 
 print_stdin:
     mov [cs:tmp_8], ah
@@ -667,16 +674,15 @@ change_directory:
     mov [cs:search_attribute], byte 0x10
     call search_dir
     jc return_21h
-.update_dir_buffer:
+
     push cx
     push di
     push si
     push ds
     push es
 
-    xor cx, cx
-    mov ds, cx
-    mov es, cx
+    mov ds, [cs:zero]
+    mov es, [cs:zero]
 
     mov di, current_directory_buffer
     add di, [cs:dir_offset]
@@ -738,8 +744,7 @@ get_current_directory:
     push ds
     pop es
 
-    xor cx, cx
-    mov ds, cx
+    mov ds, [cs:zero]
 
     mov di, si
     mov si, current_directory_buffer
@@ -2018,8 +2023,7 @@ search_entry:
     push di
     push cx
 
-    xor bx, bx
-    mov ds, bx
+    mov ds, [cs:zero]
     mov bx, 0x1000
     mov es, bx
     xor bx, bx
@@ -2079,8 +2083,7 @@ search_dir:
     push di
     push cx
 
-    xor bx, bx
-    mov ds, bx
+    mov ds, [cs:zero]
     mov bx, 0x1000
     mov es, bx
     xor bx, bx
@@ -2140,8 +2143,7 @@ load_file:
     push es
     push ds
 
-    xor ax, ax
-    mov es, ax
+    mov es, [cs:zero]
 
     mov ax, [cs:file_cluster]           ; First cluster field
     mov [cs:cluster], ax
@@ -2214,8 +2216,7 @@ write_dir:
     push es
     push ds
 
-    xor ax, ax
-    mov es, ax
+    mov es, [cs:zero]
 
     mov ax, [cs:dir_cluster]
     mov [cs:cluster], ax
@@ -2288,8 +2289,7 @@ load_dir:
     push es
     push ds
 
-    xor ax, ax
-    mov es, ax
+    mov es, [cs:zero]
 
     mov ax, [cs:dir_cluster]
     mov [cs:cluster], ax
@@ -2485,17 +2485,6 @@ int_29h:
 
     iret
 
-halt_exception:
-    push cs
-    pop ds
-    mov ah, 0x9
-    mov dx, halted_msg
-    int 0x21
-
-    cli
-    hlt
-
-
 bytes_per_sector: dw 0
 sectors_per_track: dw 0
 sectors_per_cluster: dw 0
@@ -2521,7 +2510,7 @@ asciiz_filename: resb 13
 file_cluster: dw 0
 dir_cluster: dw 0
 cluster: dw 0
-root_size: db 0
+root_size: db 
 start_sector: dw 0
 search_attribute: db 0
 entry_offset: dw 0
@@ -2535,9 +2524,8 @@ head: dw 0
 sector: dw 0
 
 starting_davidos_msg: db 0xA, 0xD, "Starting DaviDOS...", 0xA, 0xD, 0xA, 0xD, '$'
-couldnt_load_command_msg: db 0xA, 0xD, "Bad or missing command interpreter", 0xA, 0xD, "Enter correct name of Command Interpreter (eg, COMMAND.COM)", 0xA, 0xD, 0xA, 0xD, '$'
+command_load_error_msg: db 0xA, 0xD, "Bad or missing command interpreter", 0xA, 0xD, "Enter correct name of Command Interpreter (eg, COMMAND.COM)", 0xA, 0xD, 0xA, 0xD, '$'
 div_by_zero_msg: db 0xA, 0xD, "Divide by zero", 0xA, 0xD, '$'
-halted_msg: db 0xA, 0xD, "Sytem Halted$"
 bad_fat_msg: db 0xA, 0xD, "Bad File Allocation Table$"
 
 allocated_memory_segment: dw 0
