@@ -2510,7 +2510,7 @@ asciiz_filename: resb 13
 file_cluster: dw 0
 dir_cluster: dw 0
 cluster: dw 0
-root_size: db 
+root_size: db 0
 start_sector: dw 0
 search_attribute: db 0
 entry_offset: dw 0
