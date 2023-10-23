@@ -6,6 +6,8 @@ mov es, [cs:zero]
 
 mov [cs:default_drive], dl
 mov [cs:part_lba], bx
+sub dl, 0x80 - 2
+mov [cs:logical_drive], dl
 
 cli
 mov ax, 0x7000
@@ -54,6 +56,8 @@ mov ah, 0x9
 mov dx, starting_davidos_msg
 int 0x21
 
+call detect_partitions
+
 load_command:
     mov ah, 0x4B
     xor al, al
@@ -67,8 +71,7 @@ get_interpreter:
     int 0x21
 
     mov ah, 0x2
-    mov dl, [cs:default_drive]
-    call unparse_bios_drive
+    mov dl, [cs:logical_drive]
     add dl, 'A'
     int 0x21
     mov dl, '>'
@@ -310,33 +313,51 @@ print_string:
     jmp return_21h
 
 set_drive:
-    push dx
-    push ax
-    call parse_drive_letter
-    xor ah, ah
-    int 0x13
-    jnc .drive_present
-
-    pop ax
-    pop dx
+    call detect_partitions
+    cmp dl, 2
+    jge .check_mapping
+    stc
     jmp return_21h
 
-.drive_present:
-    mov [cs:default_drive], dl
-    pop ax
+.check_mapping:
+    push dx
+    push di
+    sub dl, 2
+    xor dh, dh
+    shl dx, 1
+    mov di, part_map
+    add di, dx
+    cmp [cs:di], byte 0
+    jne .drive_valid
+
+    pop di
     pop dx
+
+    stc
+    jmp return_21h
+
+.drive_valid:
+    shr dx, 1
+    add dl, 2
+    mov [cs:logical_drive], dl
+
+    mov dh, [cs:di + 1]
+    mov dl, [cs:di]
+    mov [cs:default_drive], dl
     mov [cs:dir_cluster], word 0
     mov [cs:dir_offset], word 0
 
-    push si
-    push di
-    push es
-    push ds
-    push cx
     push ax
     push bx
-    push dx
+    push cx
+    push es
 
+    cmp dh, 0xFF
+    jne .use_partition_table
+    mov [cs:part_lba], word 0
+    jmp .clear_dir_buff
+
+.use_partition_table:
     xor ax, ax
     mov cl, 1
     mov es, [cs:zero]
@@ -344,43 +365,31 @@ set_drive:
     mov [cs:part_lba], word 0
     call read_disk
 
-    mov ds, [cs:zero]
-    mov si, fat_version_string
-    mov di, buffer + 0x36
-    mov cx, 8
-    repe cmpsb
-    jne .use_partition_table
-
-    mov [cs:part_lba], word 0
-    jmp .continue
-
-.use_partition_table:
-    mov bx, [cs:buffer + 446 + 8]
+    mov dl, dh
+    xor dh, dh
+    shl dx, 4
+    mov di, buffer
+    add di, dx
+    mov bx, [cs:di + 446 + 8]
     mov [cs:part_lba], bx
 
-.continue:
+.clear_dir_buff:
     mov di, current_directory_buffer
     xor al, al
     mov cx, 64
     rep stosb
 
-    pop dx
+    pop es
+    pop cx
     pop bx
     pop ax
-    pop cx
-    pop ds
-    pop es
     pop di
-    pop si
+    pop dx
 
     jmp return_21h
 
 get_drive:
-    push dx
-    mov dl, [cs:default_drive]
-    call unparse_bios_drive
-    mov al, dl
-    pop dx
+    mov al, [cs:logical_drive]
     jmp return_21h
 
 set_dta:
@@ -1719,15 +1728,6 @@ check_ctrl_c:
     int 0x29
 
     int 0x23
-    
-parse_drive_letter:
-    cmp dl, 2
-    jge .harddrive
-    ret
-
-.harddrive:
-    add dl, 0x80 - 2
-    ret
 
 unparse_bios_drive:
     push dx
@@ -2444,11 +2444,7 @@ write_disk:
 
 handle_disk_error:
     push ax
-    push dx
-    mov dl, [cs:default_drive]
-    call unparse_bios_drive
-    mov al, dl
-    pop dx
+    mov al, [cs:logical_drive]
     cmp [cs:tmp_8], byte 0x3
     je .write_error
 
@@ -2473,6 +2469,77 @@ handle_disk_error:
 .abort:
     int 0x22
 
+detect_partitions:
+    push ax
+    push bx
+    push cx
+    push dx
+    push es
+    push di
+    mov di, part_map
+    mov dl, 0x80
+    mov es, [cs:zero]
+
+.drive_loop:
+    push dx
+    mov ah, 0x2
+    mov al, 1
+    xor dh, dh
+    mov cl, 1
+    xor ch, ch
+    mov bx, buffer
+    int 0x13
+    pop dx
+    jc .done
+
+    cmp [cs:buffer + 510], word 0xAA55
+    jne .drive_done
+
+    cmp [cs:buffer + 0x39], word "16"           ; Part of FAT16 identifier
+    jne .part_1
+    mov [cs:di], dl
+    mov [cs:di + 1], byte 0xFF
+    add di, 2
+
+.part_1:
+    cmp [cs:buffer + 446 + 4], byte 0x4
+    jne .part_2
+    mov [cs:di], dl
+    mov [cs:di + 1], byte 0
+    add di, 2
+.part_2:
+    cmp [cs:buffer + 446 + 4 + 16], byte 0x4
+    jne .part_3
+    mov [cs:di], dl
+    mov [cs:di + 1], byte 1
+    add di, 2
+.part_3:
+    cmp [cs:buffer + 446 + 4 + 32], byte 0x4
+    jne .part_4
+    mov [cs:di], dl
+    mov [cs:di + 1], byte 2
+    add di, 2
+.part_4:
+    cmp [cs:buffer + 446 + 4 + 48], byte 0x4
+    jne .drive_done
+    mov [cs:di], dl
+    mov [cs:di + 1], byte 3
+    add di, 2
+
+.drive_done:
+    inc dl
+    jmp .drive_loop
+
+.done:
+    pop di
+    pop es
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+
+    ret
+    
 int_24h:
     xor al, al
     iret
@@ -2494,6 +2561,7 @@ sectors_per_fat: dw 0
 total_dir_entries: dw 0
 fat_copies: db 0
 default_drive: db 0
+logical_drive: db 0
 part_lba: dw 0
 fat_version_string: db "FAT16   "
 
@@ -2581,5 +2649,9 @@ param:
 cmdline: 
     db 0
     db 0xD
+
+part_map:
+    resw 23                             ; 23 possible partitions for 23 possible drive letters (C-Z)
+                                        ; Each words consists of drive number and partitons
 
 buffer:
