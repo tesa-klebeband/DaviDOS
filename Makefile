@@ -43,4 +43,7 @@ image: prep masterboot.bin bootloader.bin davidos.sys programs
 	sudo losetup -d /dev/loop10
 
 run: $(TARGET_IMG)
-	$(EMULATOR) $^
+	$(EMULATOR) $^ -hdb unpart.img
+
+clean:
+	rm -rf $(BUILD)
