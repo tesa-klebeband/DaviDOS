@@ -44,3 +44,6 @@ image: prep masterboot.bin bootloader.bin davidos.sys programs
 
 run: $(TARGET_IMG)
 	$(EMULATOR) $^
+
+clean:
+	rm -rf $(BUILD)
